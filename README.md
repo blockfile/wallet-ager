@@ -92,6 +92,32 @@ prompt is **masked** so your key never shows on screen. If run without a
 terminal (e.g. accidentally under pm2/systemd or a pipe), it prints guidance and
 exits instead of hanging; use the flag form there.
 
+## Gather (sweep main wallets → supermain)
+
+Consolidate leftover ETH from all your main wallets into one **supermain**
+wallet. Set its address in `config.json`:
+
+```json
+"superMainWallet": "0xYourSupermainWalletAddress"
+```
+
+Only the **address** is needed (receiving requires no private key). Then:
+
+```bash
+node src/cli.js gather --dry     # preview: shows what WOULD be swept, sends nothing
+node src/cli.js gather           # sweep for real (asks for confirmation in a terminal)
+node src/cli.js gather --yes     # sweep headless (no prompt) — use with care
+# or pick "Gather" in `npm run cli`
+```
+
+- Sweeps each main wallet's **entire balance minus a gas reserve** to the
+  supermain. Wallets too low to cover gas are skipped.
+- Moves real funds, so it **requires confirmation** interactively, or `--yes`
+  headless. If `dryRun` is `true` in config, gather is always a preview.
+- Sweeps the **main wallets only** — the daily child wallets keep their ETH.
+- One-directional: main wallets → supermain. It never touches the supermain's
+  funds (it has no key for it).
+
 ### Hot-reload (no restart needed)
 
 The running worker **watches `config.json`**. When you add a new main wallet

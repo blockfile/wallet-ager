@@ -110,3 +110,30 @@ test("withAddedWallet rejects a duplicate name", () => {
 test("withAddedWallet rejects a bad private key", () => {
   assert.throws(() => withAddedWallet({}, { name: "x", privateKey: "bad" }), /privateKey/);
 });
+
+const ADDR = "0x" + "1".repeat(40);
+
+test("superMainWallet defaults to null and accepts a valid address", () => {
+  assert.equal(normalizeConfig({ mainWallets: [{ privateKey: KEY_A }] }).superMainWallet, null);
+  const cfg = normalizeConfig({ superMainWallet: ADDR, mainWallets: [{ privateKey: KEY_A }] });
+  assert.equal(cfg.superMainWallet.toLowerCase(), ADDR);
+});
+
+test("superMainWallet accepts an object with an address", () => {
+  const cfg = normalizeConfig({ superMainWallet: { address: ADDR }, mainWallets: [{ privateKey: KEY_A }] });
+  assert.equal(cfg.superMainWallet.toLowerCase(), ADDR);
+});
+
+test("superMainWallet rejects an invalid address", () => {
+  assert.throws(
+    () => normalizeConfig({ superMainWallet: "0xnothex", mainWallets: [{ privateKey: KEY_A }] }),
+    /valid 0x address/
+  );
+});
+
+test("empty superMainWallet string stays null", () => {
+  assert.equal(
+    normalizeConfig({ superMainWallet: "", mainWallets: [{ privateKey: KEY_A }] }).superMainWallet,
+    null
+  );
+});

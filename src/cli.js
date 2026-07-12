@@ -1,5 +1,5 @@
 import { stdin } from "node:process";
-import { select, input, password } from "@inquirer/prompts";
+import { select, input, password, confirm } from "@inquirer/prompts";
 import {
   loadConfig,
   loadRawConfig,
@@ -10,6 +10,7 @@ import {
 import { getNetwork } from "./networks.js";
 import { makeProvider, makeSigner, formatEther } from "./funder.js";
 import { loadState } from "./storage.js";
+import { gatherFunds } from "./gather.js";
 
 // ---- helpers ----
 
@@ -127,6 +128,54 @@ async function cmdAdd(argv = []) {
   });
 }
 
+// Sweep all main wallets up to cfg.superMainWallet. Moves real funds, so it
+// requires confirmation (interactive) or --yes (headless). Honors dry runs.
+//   node src/cli.js gather [--dry] [--yes]
+async function cmdGather(argv = []) {
+  const cfg = loadConfig();
+  const flags = parseFlags(argv);
+  if (!cfg.superMainWallet) {
+    console.error(
+      '\nNo "superMainWallet" in config.json. Add the destination address, e.g.:\n' +
+        '  "superMainWallet": "0xYourColdWalletAddress"\n'
+    );
+    process.exit(1);
+  }
+
+  const dry = Boolean(flags.dry) || cfg.dryRun;
+  const net = getNetwork(cfg.network);
+  console.log(`\nGather → ${cfg.superMainWallet}`);
+  console.log(`Network: ${net.name}${dry ? "   [DRY RUN — nothing will be sent]" : ""}`);
+  console.log(`Sweeping ${cfg.mainWallets.length} main wallet(s) to the supermain wallet.\n`);
+
+  if (!dry) {
+    if (stdin.isTTY) {
+      const ok = await confirm({
+        message: `Send ALL main-wallet balances to ${cfg.superMainWallet}?`,
+        default: false,
+      });
+      if (!ok) {
+        console.log("Cancelled.\n");
+        return;
+      }
+    } else if (!flags.yes) {
+      console.error(
+        "Refusing to move funds without confirmation. Run in a terminal, or pass --yes for headless.\n"
+      );
+      process.exit(1);
+    }
+  }
+
+  const results = await gatherFunds(cfg, { dryRun: dry });
+  console.log("name        balance(ETH)     sweep(ETH)      result");
+  console.log("----------  ---------------  --------------  ------------------------------------");
+  for (const r of results) {
+    const result = r.error ? `ERR: ${r.error}` : r.txHash ? r.txHash : r.skipped ?? "-";
+    console.log(`${r.name.padEnd(10)}  ${String(r.balance).padStart(15)}  ${String(r.sweep).padStart(14)}  ${result}`);
+  }
+  console.log("");
+}
+
 // ---- interactive menu (no subcommand) ----
 
 function requireTTY(what) {
@@ -150,6 +199,7 @@ async function menu() {
         { name: "Status   — running wallets, day, live balance", value: "status" },
         { name: "List     — configured main wallets", value: "list" },
         { name: "Add      — add a new main wallet", value: "add" },
+        { name: "Gather   — sweep main wallets to supermain", value: "gather" },
         { name: "Exit", value: "exit" },
       ],
       loop: false,
@@ -159,6 +209,7 @@ async function menu() {
     if (action === "status") await cmdStatus();
     else if (action === "list") cmdList();
     else if (action === "add") await cmdAdd();
+    else if (action === "gather") await cmdGather();
   }
 }
 
@@ -171,9 +222,11 @@ async function main() {
     else if (cmd === "status") await cmdStatus();
     else if (cmd === "list") cmdList();
     else if (cmd === "add") await cmdAdd(process.argv.slice(3));
+    else if (cmd === "gather") await cmdGather(process.argv.slice(3));
     else {
-      console.log(`Usage: node src/cli.js [status|list|add]  (no arg = interactive menu)`);
-      console.log(`  add flags: --name <n> --key 0x<64hex> [--per-day 10] [--amount 0.0005]`);
+      console.log(`Usage: node src/cli.js [status|list|add|gather]  (no arg = interactive menu)`);
+      console.log(`  add flags:    --name <n> --key 0x<64hex> [--per-day 10] [--amount 0.0005]`);
+      console.log(`  gather flags: [--dry] [--yes]`);
       process.exit(1);
     }
   } catch (e) {

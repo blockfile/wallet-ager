@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { isAddress } from "ethers";
 import { getNetwork } from "./networks.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,17 @@ export function normalizeConfig(raw) {
     }
   }
 
+  // Optional destination address for the `gather` command (sweep main wallets
+  // up to this wallet). Only an address is needed — receiving requires no key.
+  let superMainWallet = raw.superMainWallet ?? null;
+  if (superMainWallet !== null) {
+    if (typeof superMainWallet === "object" && superMainWallet) superMainWallet = superMainWallet.address;
+    if (typeof superMainWallet === "string") superMainWallet = superMainWallet.trim() || null;
+    if (superMainWallet !== null && !isAddress(superMainWallet)) {
+      fail("superMainWallet must be a valid 0x address (the destination for `gather`)");
+    }
+  }
+
   if (!Array.isArray(raw.mainWallets) || raw.mainWallets.length === 0) {
     fail("mainWallets must be a non-empty array");
   }
@@ -74,7 +86,7 @@ export function normalizeConfig(raw) {
     };
   });
 
-  return { network, rpcUrl, dryRun, intervalHours, gasBufferEth, mainWallets };
+  return { network, rpcUrl, dryRun, intervalHours, gasBufferEth, superMainWallet, mainWallets };
 }
 
 function num(v, label) {

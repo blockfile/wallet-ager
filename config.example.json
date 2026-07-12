@@ -4,6 +4,7 @@
   "dryRun": false,
   "intervalHours": 24,
   "gasBufferEth": "0.0005",
+  "superMainWallet": "",
   "mainWallets": [
     {
       "name": "main-1",
