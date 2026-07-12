@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "once": "node src/index.js --once",
+    "cli": "node src/cli.js",
+    "status": "node src/cli.js status",
+    "add": "node src/cli.js add",
     "test": "node --test"
   },
   "dependencies": {

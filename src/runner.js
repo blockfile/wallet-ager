@@ -1,3 +1,4 @@
+import { watch } from "node:fs";
 import { generateWallets } from "./wallets.js";
 import { saveDayWallets, loadState, saveState } from "./storage.js";
 import {
@@ -8,6 +9,7 @@ import {
   formatEther,
 } from "./funder.js";
 import { getNetwork } from "./networks.js";
+import { loadConfig, DEFAULT_CONFIG_PATH } from "./config.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -135,21 +137,60 @@ export async function runOnce(cfg) {
   return results;
 }
 
-// Run all main wallets in parallel, each on its own loop, forever.
-export async function runAll(cfg) {
+// Run all main wallets in parallel, each on its own loop, forever, and
+// hot-reload config.json: any newly-added main wallet is picked up and started
+// automatically without a restart. Existing wallets are never touched.
+//
+// Scope of hot-reload: only ADDING main wallets is live. Changes to global
+// settings (network, rpcUrl, intervalHours) or to existing wallet entries need
+// a restart — the provider and running loops are captured at startup.
+export async function runDaemon(cfg, configPath = DEFAULT_CONFIG_PATH) {
   const provider = makeProvider(cfg.network, cfg.rpcUrl);
   const net = getNetwork(cfg.network);
+  const active = new Set();
+
+  const startWallet = (wallet) => {
+    if (active.has(wallet.name)) return;
+    active.add(wallet.name);
+    // Keep the name in `active` even after the loop ends (exhausted) so a
+    // config reload never respawns a finished wallet.
+    runLoop(cfg, wallet, provider).catch((e) => log(wallet.name, `FATAL: ${e.message}`));
+  };
+
   log(
     "system",
     `Starting ${cfg.mainWallets.length} main wallet(s) on ${net.name} (chainId ${net.chainId})` +
       (cfg.dryRun ? " in DRY RUN mode." : ".")
   );
-  await Promise.all(
-    cfg.mainWallets.map((wallet) =>
-      runLoop(cfg, wallet, provider).catch((e) =>
-        log(wallet.name, `FATAL: ${e.message}`)
-      )
-    )
-  );
-  log("system", "All main wallets have stopped (exhausted).");
+  cfg.mainWallets.forEach(startWallet);
+
+  // Watch config.json for newly added main wallets (debounced; editors emit
+  // multiple events per save). A bad edit is logged and ignored, never fatal.
+  let debounce = null;
+  const watcher = watch(configPath, () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      let fresh;
+      try {
+        fresh = loadConfig(configPath);
+      } catch (e) {
+        log("system", `Ignoring config change — invalid: ${e.message}`);
+        return;
+      }
+      const added = fresh.mainWallets.filter((w) => !active.has(w.name));
+      if (added.length === 0) return;
+      log("system", `Config changed: starting ${added.length} new main wallet(s): ${added.map((w) => w.name).join(", ")}`);
+      added.forEach(startWallet);
+    }, 500);
+  });
+  log("system", `Hot-reload enabled: watching ${configPath} for new main wallets.`);
+
+  // Keep the process alive indefinitely (daemon). The watcher already holds the
+  // event loop open; this promise never resolves so the daemon runs until it is
+  // stopped by systemd/pm2/Ctrl+C.
+  await new Promise(() => {});
+  watcher.close(); // unreachable, kept for clarity
 }
+
+// Backwards-compatible alias.
+export const runAll = runDaemon;

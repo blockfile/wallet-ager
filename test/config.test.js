@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeConfig } from "../src/config.js";
+import { normalizeConfig, withAddedWallet } from "../src/config.js";
 
 const KEY_A = "0x" + "a".repeat(64);
 const KEY_B = "0x" + "b".repeat(64);
@@ -87,4 +87,26 @@ test("rejects a name that is unsafe as a folder", () => {
     () => normalizeConfig({ mainWallets: [{ name: "../evil", privateKey: KEY_A }] }),
     /alphanumeric/
   );
+});
+
+test("withAddedWallet appends a valid wallet and leaves the original untouched", () => {
+  const raw = { network: "testnet", mainWallets: [{ name: "main-1", privateKey: KEY_A }] };
+  const next = withAddedWallet(raw, { name: "main-2", privateKey: KEY_B, walletsPerDay: 5, amountEth: "0.001" });
+  assert.equal(next.mainWallets.length, 2);
+  assert.equal(next.mainWallets[1].name, "main-2");
+  assert.equal(raw.mainWallets.length, 1, "original config must not be mutated");
+});
+
+test("withAddedWallet works when the base has no mainWallets yet", () => {
+  const next = withAddedWallet({}, { name: "main-1", privateKey: KEY_A });
+  assert.equal(next.mainWallets.length, 1);
+});
+
+test("withAddedWallet rejects a duplicate name", () => {
+  const raw = { mainWallets: [{ name: "dup", privateKey: KEY_A }] };
+  assert.throws(() => withAddedWallet(raw, { name: "dup", privateKey: KEY_B }), /duplicate/);
+});
+
+test("withAddedWallet rejects a bad private key", () => {
+  assert.throws(() => withAddedWallet({}, { name: "x", privateKey: "bad" }), /privateKey/);
 });

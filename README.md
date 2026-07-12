@@ -53,7 +53,9 @@ Each `mainWallets` entry:
 
 ### Adding more main wallets
 
-Just add more entries to `mainWallets` — they all run independently:
+Add more entries to `mainWallets` — they all run independently. You can edit
+`config.json` by hand, or use the CLI `add` command (below). Each new main wallet
+needs its **own** funded key.
 
 ```json
 "mainWallets": [
@@ -66,10 +68,35 @@ Just add more entries to `mainWallets` — they all run independently:
 ## Running
 
 ```bash
-npm start        # runs forever, one batch per interval per main wallet
+npm start        # runs forever, one batch per interval per main wallet (with hot-reload)
 npm run once     # runs exactly one batch per main wallet, then exits (testing/catch-up)
 npm test         # run the unit tests
 ```
+
+## Managing wallets (CLI)
+
+The worker (`npm start`) runs headless — under systemd/pm2 on a server. To
+inspect or change it, use the CLI in a separate terminal:
+
+```bash
+npm run cli          # interactive menu: status / list / add / exit
+npm run status       # per-wallet day, last run, live on-chain balance, exhausted?
+npm run add          # interactively add a new main wallet
+
+# non-interactive add (handy for scripts):
+node src/cli.js add --name main-2 --key 0x<64hex> [--per-day 10] [--amount 0.0005]
+```
+
+### Hot-reload (no restart needed)
+
+The running worker **watches `config.json`**. When you add a new main wallet
+(via the CLI or by editing the file), the worker starts its daily loop
+automatically within a few seconds — **no restart, no downtime**. Existing
+wallets are never touched (their state is preserved).
+
+Note: only **adding** main wallets is live. Changing global settings
+(`network`, `rpcUrl`, `intervalHours`) or an existing wallet's entry requires a
+restart (`systemctl restart wallet-ager` or `pm2 restart wallet-ager`).
 
 Recommended first run: keep `network: "testnet"` and set `dryRun: true`, run
 `npm run once`, and inspect the generated `output/main-1/wallets-day1.json`.

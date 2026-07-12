@@ -1,10 +1,11 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { getNetwork } from "./networks.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = join(__dirname, "..");
+export const DEFAULT_CONFIG_PATH = join(PROJECT_ROOT, "config.json");
 
 // Global defaults, overridable per main wallet.
 const DEFAULTS = {
@@ -89,17 +90,35 @@ function str(v, label) {
   return s;
 }
 
-export function loadConfig(path = join(PROJECT_ROOT, "config.json")) {
+// Read and parse the raw config JSON (no normalization/defaults applied).
+export function loadRawConfig(path = DEFAULT_CONFIG_PATH) {
   if (!existsSync(path)) {
     throw new Error(
       `No config found at ${path}. Copy config.example.json to config.json and fill in your main wallet private key(s).`
     );
   }
-  let raw;
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"));
+    return JSON.parse(readFileSync(path, "utf8"));
   } catch (e) {
     throw new Error(`Could not parse ${path}: ${e.message}`);
   }
-  return normalizeConfig(raw);
+}
+
+export function loadConfig(path = DEFAULT_CONFIG_PATH) {
+  return normalizeConfig(loadRawConfig(path));
+}
+
+// Return a copy of `raw` with `entry` appended to mainWallets. Validates the
+// whole result (rejects duplicate names, bad keys, etc.) before returning, so
+// callers never persist an invalid config. Pure — does not touch disk.
+export function withAddedWallet(raw, entry) {
+  const base = raw && typeof raw === "object" ? raw : {};
+  const existing = Array.isArray(base.mainWallets) ? base.mainWallets : [];
+  const next = { ...base, mainWallets: [...existing, entry] };
+  normalizeConfig(next); // throws on any validation problem
+  return next;
+}
+
+export function saveRawConfig(raw, path = DEFAULT_CONFIG_PATH) {
+  writeFileSync(path, JSON.stringify(raw, null, 2) + "\n", { mode: 0o600 });
 }

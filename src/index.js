@@ -1,5 +1,5 @@
-import { loadConfig } from "./config.js";
-import { runAll, runOnce } from "./runner.js";
+import { loadConfig, DEFAULT_CONFIG_PATH } from "./config.js";
+import { runDaemon, runOnce } from "./runner.js";
 
 async function main() {
   const once = process.argv.includes("--once");
@@ -18,7 +18,7 @@ async function main() {
     process.exit(0);
   }
 
-  await runAll(cfg);
+  await runDaemon(cfg, DEFAULT_CONFIG_PATH);
   process.exit(0);
 }
 
