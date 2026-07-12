@@ -9,7 +9,9 @@
     "once": "node src/index.js --once",
     "cli": "node src/cli.js",
     "status": "node src/cli.js status",
+    "list": "node src/cli.js list",
     "add": "node src/cli.js add",
+    "gather": "node src/cli.js gather",
     "test": "node --test"
   },
   "dependencies": {
