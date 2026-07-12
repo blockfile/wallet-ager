@@ -8,7 +8,7 @@ Each day, for every main wallet:
 
 1. Generate N fresh wallets (default 10), each with an address, private key and
    12-word seed phrase.
-2. Save them to `output/<mainWallet>/wallets-dayN.json`.
+2. Save them to `output/<mainWallet>/wallets-<mainWallet>-dayN.json`.
 3. Send a fixed amount of ETH (default 0.0005) to each new wallet.
 4. Wait ~24h, then do it again with the next day's batch.
 5. When the main wallet can no longer cover a batch + gas, it stops cleanly.
@@ -147,7 +147,7 @@ Note: only **adding** main wallets is live. Changing global settings
 restart (`systemctl restart wallet-ager` or `pm2 restart wallet-ager`).
 
 Recommended first run: keep `network: "testnet"` and set `dryRun: true`, run
-`npm run once`, and inspect the generated `output/main-1/wallets-day1.json`.
+`npm run once`, and inspect the generated `output/main-1/wallets-main-1-day1.json`.
 Then set `dryRun: false` on testnet to confirm real (test) sends work. Only then
 switch `network` to `"mainnet"`.
 

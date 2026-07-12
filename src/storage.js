@@ -9,10 +9,12 @@ function ensureDir(dir) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
-// --- Per-day wallet files: output/<mainWallet>/wallets-dayN.json ---
+// --- Per-day wallet files: output/<mainWallet>/wallets-<mainWallet>-dayN.json ---
+// The main wallet name is in the filename (not just the folder) so files stay
+// unique when collected into a single folder.
 
 export function walletFilePath(mainWalletName, day) {
-  return join(OUTPUT_ROOT, mainWalletName, `wallets-day${day}.json`);
+  return join(OUTPUT_ROOT, mainWalletName, `wallets-${mainWalletName}-day${day}.json`);
 }
 
 export function saveDayWallets(mainWalletName, day, payload) {

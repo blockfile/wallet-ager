@@ -51,7 +51,7 @@ Keep `network: "testnet"`, set `dryRun: true`:
 
 ```bash
 sudo -u walletager node src/index.js --once
-sudo -u walletager cat output/main-1/wallets-day1.json
+sudo -u walletager cat output/main-1/wallets-main-1-day1.json
 ```
 
 Then `dryRun: false` on testnet to confirm real sends, then switch `network`
