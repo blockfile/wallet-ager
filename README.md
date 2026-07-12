@@ -79,13 +79,18 @@ The worker (`npm start`) runs headless — under systemd/pm2 on a server. To
 inspect or change it, use the CLI in a separate terminal:
 
 ```bash
-npm run cli          # interactive menu: status / list / add / exit
+npm run cli          # interactive arrow-key menu: Status / List / Add / Exit
 npm run status       # per-wallet day, last run, live on-chain balance, exhausted?
-npm run add          # interactively add a new main wallet
+npm run add          # interactively add a new main wallet (key input is masked)
 
-# non-interactive add (handy for scripts):
+# non-interactive add (handy for scripts / no terminal):
 node src/cli.js add --name main-2 --key 0x<64hex> [--per-day 10] [--amount 0.0005]
 ```
+
+`npm run cli` opens a real ↑/↓ selection menu — use it over SSH. The private-key
+prompt is **masked** so your key never shows on screen. If run without a
+terminal (e.g. accidentally under pm2/systemd or a pipe), it prints guidance and
+exits instead of hanging; use the flag form there.
 
 ### Hot-reload (no restart needed)
 

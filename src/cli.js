@@ -1,5 +1,5 @@
-import { createInterface } from "node:readline/promises";
-import { stdin, stdout } from "node:process";
+import { stdin } from "node:process";
+import { select, input, password } from "@inquirer/prompts";
 import {
   loadConfig,
   loadRawConfig,
@@ -16,15 +16,6 @@ import { loadState } from "./storage.js";
 function fmtTime(ms) {
   if (!ms) return "never";
   return new Date(ms).toISOString();
-}
-
-async function withRl(fn) {
-  const rl = createInterface({ input: stdin, output: stdout });
-  try {
-    return await fn(rl);
-  } finally {
-    rl.close();
-  }
 }
 
 // ---- commands ----
@@ -92,7 +83,7 @@ function parseFlags(argv) {
 
 // Add a new main wallet. Non-interactive when --key is supplied:
 //   node src/cli.js add --name main-2 --key 0x... [--per-day 10] [--amount 0.0005]
-// Otherwise prompts interactively.
+// Otherwise prompts interactively (arrow-key friendly, key input masked).
 async function cmdAdd(argv = []) {
   const raw = loadRawConfig();
   const existing = Array.isArray(raw.mainWallets) ? raw.mainWallets : [];
@@ -109,32 +100,65 @@ async function cmdAdd(argv = []) {
     return;
   }
 
-  await withRl(async (rl) => {
-    const name = (await rl.question(`Name [${suggestedName}]: `)).trim() || suggestedName;
-    const privateKey = (await rl.question("Private key (0x + 64 hex): ")).trim();
-    const walletsPerDay = (await rl.question("Wallets per day [10]: ")).trim() || "10";
-    const amountEth = (await rl.question("ETH per wallet [0.0005]: ")).trim() || "0.0005";
-    persistAdd(raw, { name, privateKey, walletsPerDay: Number(walletsPerDay), amountEth });
+  requireTTY("Adding a wallet interactively");
+  const name = await input({ message: "Name:", default: suggestedName });
+  // Masked so the private key never appears on screen (important over SSH).
+  const privateKey = await password({
+    message: "Private key (0x + 64 hex):",
+    mask: "*",
+    validate: (v) => /^0x[0-9a-fA-F]{64}$/.test(v.trim()) || "Must be 0x followed by 64 hex chars",
+  });
+  const walletsPerDay = await input({
+    message: "Wallets per day:",
+    default: "10",
+    validate: (v) => Number(v) > 0 || "Must be a positive number",
+  });
+  const amountEth = await input({
+    message: "ETH per wallet:",
+    default: "0.0005",
+    validate: (v) => /^\d+(\.\d+)?$/.test(v) && Number(v) > 0 || "Must be a positive decimal",
+  });
+
+  persistAdd(raw, {
+    name: name.trim(),
+    privateKey: privateKey.trim(),
+    walletsPerDay: Number(walletsPerDay),
+    amountEth: amountEth.trim(),
   });
 }
 
 // ---- interactive menu (no subcommand) ----
 
+function requireTTY(what) {
+  if (!stdin.isTTY) {
+    console.error(
+      `${what} needs an interactive terminal.\n` +
+        `You appear to be running without a TTY (e.g. under pm2/systemd or a pipe).\n` +
+        `Run it in your SSH shell, or use the non-interactive form:\n` +
+        `  node src/cli.js add --name main-2 --key 0x<64hex> [--per-day 10] [--amount 0.0005]`
+    );
+    process.exit(1);
+  }
+}
+
 async function menu() {
+  requireTTY("The interactive menu");
   for (;;) {
-    console.log("wallet-ager");
-    console.log("  1) status        show running main wallets + balances");
-    console.log("  2) list          list configured main wallets");
-    console.log("  3) add wallet    add a new main wallet");
-    console.log("  4) exit");
-    const choice = await withRl((rl) => rl.question("> "));
-    const c = choice.trim();
-    console.log("");
-    if (c === "1" || c === "status") await cmdStatus();
-    else if (c === "2" || c === "list") cmdList();
-    else if (c === "3" || c === "add") await cmdAdd();
-    else if (c === "4" || c === "exit" || c === "quit") return;
-    else console.log(`Unknown option: ${c}\n`);
+    const action = await select({
+      message: "wallet-ager — choose an action:",
+      choices: [
+        { name: "Status   — running wallets, day, live balance", value: "status" },
+        { name: "List     — configured main wallets", value: "list" },
+        { name: "Add      — add a new main wallet", value: "add" },
+        { name: "Exit", value: "exit" },
+      ],
+      loop: false,
+    });
+
+    if (action === "exit") return;
+    if (action === "status") await cmdStatus();
+    else if (action === "list") cmdList();
+    else if (action === "add") await cmdAdd();
   }
 }
 
@@ -153,6 +177,11 @@ async function main() {
       process.exit(1);
     }
   } catch (e) {
+    // Inquirer throws this when the user hits Ctrl+C — exit quietly.
+    if (e?.name === "ExitPromptError") {
+      console.log("\nCancelled.");
+      process.exit(0);
+    }
     console.error(`Error: ${e.message}`);
     process.exit(1);
   }
