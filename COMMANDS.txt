@@ -1,0 +1,205 @@
+========================================================================
+ WALLET-AGER — COMMAND REFERENCE (server is up and running)
+========================================================================
+ Run all commands from the project folder on the server:
+     cd ~/wallet-ager
+------------------------------------------------------------------------
+ TWO PARTS TO REMEMBER:
+   - The WORKER  = the 24/7 background process (runs under pm2). It does
+                   the daily wallet-creating and funding. It has NO menu.
+   - The CLI     = commands YOU run in your SSH terminal to check on it
+                   and manage it (status, add wallet, gather). Run these
+                   any time; they do NOT interrupt the worker.
+========================================================================
+
+
+========================================================================
+ 1) PM2 — MANAGING THE WORKER (the 24/7 process)
+========================================================================
+
+pm2 status
+    Show whether the worker is running, its uptime, restarts, and memory.
+
+pm2 logs wallet-ager
+    Watch the live log (you'll see each day's wallet creation + funding).
+    Press Ctrl+C to STOP WATCHING — the worker keeps running.
+
+pm2 logs wallet-ager --lines 50
+    Show the last 50 log lines (recent history).
+
+pm2 restart wallet-ager
+    Restart the worker. ONLY needed after you change a global setting in
+    config.json: network, rpcUrl, intervalHours, or dryRun.
+    (Adding a new main wallet does NOT need a restart — see hot-reload.)
+
+pm2 stop wallet-ager
+    Pause the worker (stops funding). Progress is saved; resume with start.
+
+pm2 start wallet-ager
+    Start it again after a stop.
+
+pm2 delete wallet-ager
+    Remove the worker from pm2 entirely (does not delete your files).
+
+pm2 save
+    Save the current pm2 process list so it comes back after a reboot.
+
+
+========================================================================
+ 2) CLI — CHECKING AND MANAGING (run in your SSH terminal)
+========================================================================
+
+npm run cli
+    Open the interactive ARROW-KEY menu:
+        Status  — running wallets, day number, live balance
+        List    — configured main wallets
+        Add     — add a new main wallet (private key is hidden as you type)
+        Gather  — sweep main wallets up to the supermain wallet
+        Exit
+    Use Up/Down arrows, Enter to select.
+
+npm run status
+    (Same as CLI > Status.) Prints a table of every main wallet:
+        - day     : how many daily batches it has completed
+        - lastRun : when the last batch ran (or "never")
+        - balance : LIVE balance on Robinhood Chain (queried now)
+        - status  : "active" or "EXHAUSTED" (out of funds)
+
+npm run cli   ->   List
+    Show the configured main wallets and their per-day settings
+    (wallets/day and ETH per wallet).
+
+
+========================================================================
+ 3) ADDING A NEW MAIN WALLET
+========================================================================
+ IMPORTANT: every new main wallet needs its OWN ETH bridged onto
+ Robinhood Chain (chain 4663). An unfunded wallet just shows EXHAUSTED.
+ You do NOT need to restart the worker — hot-reload picks it up in a
+ few seconds automatically.
+
+Interactive (recommended, key is masked on screen):
+    npm run add
+        Then answer: name, private key, wallets/day, ETH per wallet.
+
+One-line (for scripting; key is visible on the command line):
+    node src/cli.js add --name main-11 --key 0xYOUR_KEY --per-day 5 --amount 0.0005
+        --name     name/folder for this wallet (e.g. main-11)
+        --key      the wallet's private key (0x + 64 hex chars)
+        --per-day  how many wallets to create each day  (optional, default 10)
+        --amount   ETH sent to each new wallet          (optional, default 0.0005)
+
+After adding, confirm it started:
+    npm run status                 (the new wallet should appear)
+    pm2 logs wallet-ager --lines 20   (look for "starting 1 new main wallet(s)")
+
+
+========================================================================
+ 4) GATHER — SWEEP MAIN WALLETS TO THE SUPERMAIN WALLET
+========================================================================
+ Moves the leftover ETH from ALL your main wallets into one supermain
+ wallet. First set the destination in config.json:
+     "superMainWallet": "0xYourSupermainAddress"
+ (Only the ADDRESS is needed. Main wallets keep enough for gas; the daily
+  child wallets are NOT swept.)
+
+node src/cli.js gather --dry
+    PREVIEW only. Shows exactly what WOULD be swept from each wallet.
+    Sends nothing. Always safe to run.
+
+node src/cli.js gather
+    REAL sweep. Asks you to confirm (y/n) before moving funds.
+
+node src/cli.js gather --yes
+    REAL sweep with NO confirmation prompt (for scripts). Use with care.
+
+    (Or use the "Gather" option in:  npm run cli )
+
+ Note: if config.json has "dryRun": true, gather is always a preview.
+
+
+========================================================================
+ 5) CHANGING SETTINGS
+========================================================================
+
+nano config.json
+    Edit the config (network, rpcUrl, dryRun, intervalHours, gasBufferEth,
+    superMainWallet, and the mainWallets list). Save: Ctrl+O, Enter.
+    Exit: Ctrl+X.
+
+chmod 600 config.json
+    Re-lock the file so only you can read it (do this after editing).
+
+pm2 restart wallet-ager
+    Apply changes to GLOBAL settings (network, rpcUrl, dryRun, intervalHours).
+    NOT needed just for adding a main wallet.
+
+GOING LIVE (turn off dry run):
+    1) nano config.json   ->  set   "dryRun": false
+    2) pm2 restart wallet-ager
+    (Before this, make sure each main wallet actually holds ETH on
+     Robinhood Chain.)
+
+
+========================================================================
+ 6) CHECK A WALLET'S BALANCE ON ROBINHOOD CHAIN
+========================================================================
+
+Whole system at once:
+    npm run status
+
+A single address (paste the address in place of ADDRESS):
+    node -e "const {JsonRpcProvider,formatEther}=require('ethers');(async()=>{const p=new JsonRpcProvider('https://rpc.mainnet.chain.robinhood.com',4663);console.log(formatEther(await p.getBalance('ADDRESS')),'ETH')})()"
+
+In a browser (explorer):
+    https://robinhoodchain.blockscout.com   ->  paste the address
+
+
+========================================================================
+ 7) CREATE A BRAND-NEW WALLET (address + key + seed phrase)
+========================================================================
+ Use this to make a new wallet you'll fund and use as a main wallet.
+
+    node -e "const {Wallet}=require('ethers');const w=Wallet.createRandom();console.log('address:    '+w.address);console.log('privateKey: '+w.privateKey);console.log('seedPhrase: '+w.mnemonic.phrase)"
+
+ Copy the address (to fund it), and keep the privateKey + seedPhrase safe.
+
+
+========================================================================
+ 8) WHERE THE DATA LIVES
+========================================================================
+
+    config.json                       your settings + main wallet keys (SECRET)
+    output/<mainName>/wallets-dayN.json   the created wallets' keys + seed phrases (SECRET)
+    state/<mainName>.json             progress: day counter, last run, exhausted?
+
+ NEVER upload, back up, or share config.json or the output/ folder — they
+ hold private keys that control real funds. They are already git-ignored.
+
+
+========================================================================
+ 9) UPDATING THE CODE FROM GITHUB
+========================================================================
+
+    cd ~/wallet-ager
+    git pull
+    npm install
+    pm2 restart wallet-ager
+
+ (Your config.json, output/ and state/ are NOT touched by git pull.)
+
+
+========================================================================
+ 10) EVERYDAY QUICK REFERENCE
+========================================================================
+
+    pm2 status                         is the worker running?
+    npm run status                     per-wallet day + live balances
+    pm2 logs wallet-ager               watch it work (Ctrl+C to stop watching)
+    npm run add                        add a main wallet (auto picked up)
+    node src/cli.js gather --dry       preview a sweep to supermain
+    node src/cli.js gather             sweep to supermain (asks to confirm)
+
+========================================================================
+ END OF COMMAND REFERENCE
+========================================================================

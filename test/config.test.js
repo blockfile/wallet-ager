@@ -15,6 +15,19 @@ test("applies defaults and normalizes a minimal config", () => {
   assert.equal(cfg.mainWallets[0].amountEth, "0.0005");
 });
 
+test("startDelayHours defaults to 0 and accepts a non-negative value", () => {
+  assert.equal(normalizeConfig({ mainWallets: [{ privateKey: KEY_A }] }).mainWallets[0].startDelayHours, 0);
+  const cfg = normalizeConfig({ mainWallets: [{ privateKey: KEY_A, startDelayHours: 2 }] });
+  assert.equal(cfg.mainWallets[0].startDelayHours, 2);
+});
+
+test("startDelayHours rejects a negative value", () => {
+  assert.throws(
+    () => normalizeConfig({ mainWallets: [{ privateKey: KEY_A, startDelayHours: -1 }] }),
+    /startDelayHours must be a number >= 0/
+  );
+});
+
 test("per-wallet overrides win over defaults", () => {
   const cfg = normalizeConfig({
     network: "mainnet",

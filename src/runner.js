@@ -98,6 +98,15 @@ export async function runBatch(cfg, wallet, provider) {
 export async function runLoop(cfg, wallet, provider) {
   const intervalMs = cfg.intervalHours * HOUR_MS;
 
+  // One-time startup stagger: wait `startDelayHours` before the FIRST batch
+  // only (dayCounter 0). On restart, wallets that have already run resume
+  // normally and are not delayed again.
+  const initial = loadState(wallet.name);
+  if (!initial.exhausted && initial.dayCounter === 0 && wallet.startDelayHours > 0) {
+    log(wallet.name, `Startup delay: waiting ${wallet.startDelayHours}h before first batch.`);
+    await sleep(wallet.startDelayHours * HOUR_MS);
+  }
+
   for (;;) {
     const state = loadState(wallet.name);
     if (state.exhausted) {

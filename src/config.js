@@ -83,6 +83,9 @@ export function normalizeConfig(raw) {
       privateKey: w.privateKey,
       walletsPerDay: num(w.walletsPerDay ?? DEFAULTS.walletsPerDay, `${where}.walletsPerDay`),
       amountEth: str(w.amountEth ?? DEFAULTS.amountEth, `${where}.amountEth`),
+      // One-time offset (hours) after the worker starts before this wallet's
+      // FIRST batch. Lets you stagger many main wallets. 0 = start immediately.
+      startDelayHours: nonNeg(w.startDelayHours ?? 0, `${where}.startDelayHours`),
     };
   });
 
@@ -92,6 +95,12 @@ export function normalizeConfig(raw) {
 function num(v, label) {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) fail(`${label} must be a positive number`);
+  return n;
+}
+
+function nonNeg(v, label) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) fail(`${label} must be a number >= 0`);
   return n;
 }
 

@@ -50,6 +50,23 @@ Each `mainWallets` entry:
 | `privateKey` | **yes** | — | The main wallet's `0x…` private key (funds the batches) |
 | `walletsPerDay` | no | 10 | How many wallets to create each day |
 | `amountEth` | no | `0.0005` | ETH sent to each new wallet |
+| `startDelayHours` | no | `0` | Hours to wait after the worker starts before this wallet's **first** batch (stagger many wallets) |
+
+### Staggering starts (`startDelayHours`)
+
+To avoid all your main wallets hitting the RPC at the same instant on startup,
+give each a `startDelayHours` — a one-time offset before its **first** batch:
+
+```json
+{ "name": "main-1", "privateKey": "0x...", "startDelayHours": 0 },
+{ "name": "main-2", "privateKey": "0x...", "startDelayHours": 2 },
+{ "name": "main-3", "privateKey": "0x...", "startDelayHours": 4 }
+```
+
+main-1 starts immediately, main-2 two hours later, main-3 four hours later, etc.
+After the first batch each wallet follows its normal `intervalHours` cadence.
+The delay applies **only to the first-ever batch** — restarting the worker does
+not re-delay wallets that have already run.
 
 ### Adding more main wallets
 
