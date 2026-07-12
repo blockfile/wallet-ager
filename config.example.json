@@ -1,0 +1,15 @@
+{
+  "network": "testnet",
+  "rpcUrl": "",
+  "dryRun": false,
+  "intervalHours": 24,
+  "gasBufferEth": "0.0005",
+  "mainWallets": [
+    {
+      "name": "main-1",
+      "privateKey": "0xREPLACE_WITH_YOUR_MAIN_WALLET_PRIVATE_KEY",
+      "walletsPerDay": 10,
+      "amountEth": "0.0005"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+# systemd unit for wallet-ager.
+# Copy to /etc/systemd/system/wallet-ager.service and edit the paths/user below.
+#
+#   sudo cp wallet-ager.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now wallet-ager
+#   journalctl -u wallet-ager -f          # live logs
+
+[Unit]
+Description=wallet-ager daily wallet funder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Run as a non-root user that owns the project directory.
+User=walletager
+WorkingDirectory=/opt/wallet-ager
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=30
+# Harden: no new privileges, private tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

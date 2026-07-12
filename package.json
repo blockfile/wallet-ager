@@ -1,0 +1,15 @@
+{
+  "name": "wallet-ager",
+  "version": "1.0.0",
+  "description": "Daily auto-generate and fund fresh wallets from one or more main wallets on Robinhood Chain",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "once": "node src/index.js --once",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  }
+}

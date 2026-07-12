@@ -1,0 +1,9 @@
+# NEVER commit secrets or generated keys
+config.json
+output/
+state/
+*.log
+
+# Node
+node_modules/
+npm-debug.log*
