@@ -171,6 +171,9 @@ In a browser (explorer):
 
     config.json                       your settings + main wallet keys (SECRET)
     output/<mainName>/wallets-<mainName>-dayN.json  created wallets' keys + seed phrases (SECRET)
+    output/<mainName>/wallets-<mainName>-dayN.txt   same data, human-readable (SECRET)
+        (new batches write both automatically; backfill old files with:
+         node src/cli.js export-txt )
     state/<mainName>.json             progress: day counter, last run, exhausted?
 
  NEVER upload, back up, or share config.json or the output/ folder — they

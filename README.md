@@ -8,7 +8,9 @@ Each day, for every main wallet:
 
 1. Generate N fresh wallets (default 10), each with an address, private key and
    12-word seed phrase.
-2. Save them to `output/<mainWallet>/wallets-<mainWallet>-dayN.json`.
+2. Save them to `output/<mainWallet>/wallets-<mainWallet>-dayN.json` **and** a
+   human-readable `.txt` copy (`node src/cli.js export-txt` backfills `.txt` for
+   older files).
 3. Send a fixed amount of ETH (default 0.0005) to each new wallet.
 4. Wait ~24h, then do it again with the next day's batch.
 5. When the main wallet can no longer cover a batch + gas, it stops cleanly.
