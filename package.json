@@ -12,6 +12,7 @@
     "list": "node src/cli.js list",
     "add": "node src/cli.js add",
     "gather": "node src/cli.js gather",
+    "export-txt": "node src/cli.js export-txt",
     "test": "node --test"
   },
   "dependencies": {

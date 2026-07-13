@@ -9,7 +9,7 @@ import {
 } from "./config.js";
 import { getNetwork } from "./networks.js";
 import { makeProvider, makeSigner, formatEther } from "./funder.js";
-import { loadState } from "./storage.js";
+import { loadState, exportAllTxt } from "./storage.js";
 import { gatherFunds } from "./gather.js";
 
 // ---- helpers ----
@@ -176,6 +176,19 @@ async function cmdGather(argv = []) {
   console.log("");
 }
 
+// Write a .txt next to every existing wallets-*.json (backfill for files made
+// before .txt export existed). New batches already write both automatically.
+function cmdExportTxt() {
+  const written = exportAllTxt();
+  if (written.length === 0) {
+    console.log("\nNo wallet files found in output/ to export.\n");
+    return;
+  }
+  console.log(`\n✓ Wrote ${written.length} .txt file(s):`);
+  for (const p of written) console.log(`  ${p}`);
+  console.log("");
+}
+
 // ---- interactive menu (no subcommand) ----
 
 function requireTTY(what) {
@@ -200,6 +213,7 @@ async function menu() {
         { name: "List     — configured main wallets", value: "list" },
         { name: "Add      — add a new main wallet", value: "add" },
         { name: "Gather   — sweep main wallets to supermain", value: "gather" },
+        { name: "Export   — write .txt for all wallet files", value: "export-txt" },
         { name: "Exit", value: "exit" },
       ],
       loop: false,
@@ -210,6 +224,7 @@ async function menu() {
     else if (action === "list") cmdList();
     else if (action === "add") await cmdAdd();
     else if (action === "gather") await cmdGather();
+    else if (action === "export-txt") cmdExportTxt();
   }
 }
 
@@ -223,8 +238,9 @@ async function main() {
     else if (cmd === "list") cmdList();
     else if (cmd === "add") await cmdAdd(process.argv.slice(3));
     else if (cmd === "gather") await cmdGather(process.argv.slice(3));
+    else if (cmd === "export-txt") cmdExportTxt();
     else {
-      console.log(`Usage: node src/cli.js [status|list|add|gather]  (no arg = interactive menu)`);
+      console.log(`Usage: node src/cli.js [status|list|add|gather|export-txt]  (no arg = interactive menu)`);
       console.log(`  add flags:    --name <n> --key 0x<64hex> [--per-day 10] [--amount 0.0005]`);
       console.log(`  gather flags: [--dry] [--yes]`);
       process.exit(1);
