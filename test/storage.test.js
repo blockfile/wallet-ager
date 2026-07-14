@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { basename } from "node:path";
-import { walletFilePath, walletTxtFilePath, formatWalletsTxt } from "../src/storage.js";
+import { walletFilePath, walletTxtFilePath, formatWalletsTxt, lastRunForNextRun } from "../src/storage.js";
 
 test("wallet file name includes the main wallet name and day", () => {
   assert.equal(basename(walletFilePath("main-2", 1)), "wallets-main-2-day1.json");
@@ -13,6 +13,14 @@ test("different main wallets never share a file name (safe when flattened)", () 
     basename(walletFilePath("main-1", 1)),
     basename(walletFilePath("main-2", 1))
   );
+});
+
+test("lastRunForNextRun places the next run exactly one interval ahead", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const nextRun = 2_000_000_000_000;
+  const lastRun = lastRunForNextRun(nextRun, DAY);
+  assert.equal(lastRun, nextRun - DAY);
+  assert.equal(lastRun + DAY, nextRun); // lastRun + interval === desired next run
 });
 
 test("txt file path mirrors the json name with a .txt extension", () => {

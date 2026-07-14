@@ -106,3 +106,9 @@ export function saveState(mainWalletName, state) {
   ensureDir(STATE_ROOT);
   writeFileSync(statePath(mainWalletName), JSON.stringify(state, null, 2) + "\n", { mode: 0o600 });
 }
+
+// The next batch runs at lastRunTime + interval. To make it run at
+// `nextRunMs`, store this as lastRunTime.
+export function lastRunForNextRun(nextRunMs, intervalMs) {
+  return nextRunMs - intervalMs;
+}

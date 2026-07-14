@@ -9,7 +9,7 @@ import {
 } from "./config.js";
 import { getNetwork } from "./networks.js";
 import { makeProvider, makeSigner, formatEther } from "./funder.js";
-import { loadState, exportAllTxt } from "./storage.js";
+import { loadState, saveState, exportAllTxt, lastRunForNextRun } from "./storage.js";
 import { gatherFunds } from "./gather.js";
 
 // ---- helpers ----
@@ -189,6 +189,59 @@ function cmdExportTxt() {
   console.log("");
 }
 
+// Change WHEN an already-running main wallet does its next daily batch.
+//   node src/cli.js reschedule --name main-5 --in 3      (run 3h from now)
+//   node src/cli.js reschedule --name main-5 --at 2026-07-15T07:30:00Z
+//   node src/cli.js reschedule --name main-5 --now       (run at next restart)
+// Takes effect after: pm2 restart wallet-ager
+function cmdReschedule(argv = []) {
+  const flags = parseFlags(argv);
+  const cfg = loadConfig();
+  const name = flags.name;
+  if (!name) {
+    console.error("\nProvide --name <mainWallet>.\n");
+    process.exit(1);
+  }
+  const wallet = cfg.mainWallets.find((w) => w.name === name);
+  if (!wallet) {
+    console.error(`\nNo main wallet named "${name}" in config.\n`);
+    process.exit(1);
+  }
+
+  const intervalMs = cfg.intervalHours * 60 * 60 * 1000;
+  const now = Date.now();
+  let nextRun;
+  if (argv.includes("--now")) {
+    nextRun = now;
+  } else if (flags.in !== undefined) {
+    const h = Number(flags.in);
+    if (!Number.isFinite(h)) {
+      console.error("\n--in must be a number of hours (e.g. --in 3).\n");
+      process.exit(1);
+    }
+    nextRun = now + h * 60 * 60 * 1000;
+  } else if (flags.at) {
+    nextRun = Date.parse(flags.at);
+    if (Number.isNaN(nextRun)) {
+      console.error(`\nCould not parse --at "${flags.at}". Use ISO UTC, e.g. 2026-07-15T07:30:00Z.\n`);
+      process.exit(1);
+    }
+  } else {
+    console.error("\nProvide one of: --in <hours>, --at <ISO>, or --now.\n");
+    process.exit(1);
+  }
+
+  const state = loadState(name);
+  saveState(name, { ...state, lastRunTime: lastRunForNextRun(nextRun, intervalMs) });
+
+  const utc = new Date(nextRun).toISOString();
+  const pht = new Date(nextRun + 8 * 60 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
+  console.log(`\n✓ ${name} next batch scheduled for:`);
+  console.log(`    ${utc}  (UTC)`);
+  console.log(`    ${pht}  (Philippine time, UTC+8)`);
+  console.log(`  Apply it now with:  pm2 restart wallet-ager\n`);
+}
+
 // ---- interactive menu (no subcommand) ----
 
 function requireTTY(what) {
@@ -239,10 +292,12 @@ async function main() {
     else if (cmd === "add") await cmdAdd(process.argv.slice(3));
     else if (cmd === "gather") await cmdGather(process.argv.slice(3));
     else if (cmd === "export-txt") cmdExportTxt();
+    else if (cmd === "reschedule") cmdReschedule(process.argv.slice(3));
     else {
-      console.log(`Usage: node src/cli.js [status|list|add|gather|export-txt]  (no arg = interactive menu)`);
-      console.log(`  add flags:    --name <n> --key 0x<64hex> [--per-day 10] [--amount 0.0005]`);
-      console.log(`  gather flags: [--dry] [--yes]`);
+      console.log(`Usage: node src/cli.js [status|list|add|gather|export-txt|reschedule]  (no arg = menu)`);
+      console.log(`  add flags:        --name <n> --key 0x<64hex> [--per-day 10] [--amount 0.0005]`);
+      console.log(`  gather flags:     [--dry] [--yes]`);
+      console.log(`  reschedule flags: --name <n> (--in <hours> | --at <ISO> | --now)`);
       process.exit(1);
     }
   } catch (e) {
